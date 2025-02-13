@@ -1,0 +1,160 @@
+-- https://docs.cypress.io/app/references/trade-offs#Multiple-tabs --
+
+Compensações
+Cypress automatiza o navegador com sua arquitetura única. Embora isso desbloqueie o poder de fazer coisas que você não encontrará em nenhum outro lugar, existem compensações 
+específicas que são feitas.
+
+Neste guia, explicaremos quais são algumas das compensações - e especificamente como você pode contorná-las.
+
+Embora à primeira vista possa parecer que essas são limitações estritas no Cypress - achamos que você logo perceberá que muitos desses limites são realmente bons de se ter. De certa
+ forma, eles impedem que você escreva testes ruins, lentos ou instáveis.
+
+Visão geral das compensações permanentes
+Cypress não é uma ferramenta de automação de uso geral.
+Os comandos Cypress são executados dentro de um navegador.
+Você não pode usar o Cypress para controlar dois navegadores ao mesmo tempo.
+Cada teste está vinculado a um único superdomínio. A navegação entre origens dentro dos testes pode ser habilitada usando o comando cy.origin. Por favor, leia nosso Guia de testes de
+ origem cruzada.
+Visão geral das compensações temporárias
+Queremos destacar algumas restrições temporárias que Cypress espera resolver eventualmente.
+
+Soluções alternativas para a falta de um comando cy.hover().
+Comando cy.tab().
+Não há suporte para eventos nativos ou móveis.
+o suporte a iframe é um tanto limitado, mas funciona.
+
+Compensações permanentes
+Restrições de automação
+O Cypress App é uma ferramenta especializada que realiza testes ponta a ponta, de componentes e de API muito bem. Não achamos que o Cypress seja a ferramenta ideal para coisas como:
+
+Indexando a web
+Links de aranha
+Teste de desempenho
+Script de sites de terceiros
+Existem outras ferramentas excelentes otimizadas para executar cada item listado acima.
+
+O ponto ideal do Cypress é ser usado como uma ferramenta para testar seu próprio aplicativo.
+
+Dentro do navegador
+Caso você tenha perdido antes - os testes do Cypress são executados dentro do navegador! Isso significa que podemos fazer coisas que ninguém mais pode. Não há serialização de objetos
+ ou protocolos de ligação JSON. Você tem acesso real e nativo a tudo o que está em seu aplicativo em teste.
+
+Mas isso também significa que seu código de teste está sendo avaliado dentro do navegador. O código de teste não é avaliado em Node ou em qualquer outra linguagem do lado do servidor
+. A única linguagem que suportaremos é a linguagem da web: JavaScript.
+
+Essa compensação significa que é um pouco mais desafiador se comunicar com o back-end - como seu servidor ou banco de dados. Você não poderá conectar ou importar essas bibliotecas ou
+ módulos do lado do servidor diretamente. Embora você possa exigir node_modules que podem ser usados ​​no navegador. Além disso, você pode usar o Node para importar ou comunicar-se 
+ diretamente com seus scripts de back-end usando nossos Node Events ou cy.task().
+
+Para conversar com seu banco de dados ou servidor você precisa usar os comandos cy.exec(), cy.task() ou cy.request(). Isso significa que você precisará expor uma maneira de propagar
+ e configurar seu banco de dados. Pode exigir um pouco mais de esforço do que outras ferramentas de teste escritas em sua linguagem de back-end.
+
+A desvantagem aqui é que fazer tudo no navegador é uma experiência muito melhor no Cypress. Mas fazer coisas fora do navegador pode exigir um pouco mais de trabalho.
+
+Vários navegadores abertos ao mesmo tempo
+Cypress não suporta o controle de mais de um navegador aberto por vez. Você pode testar várias guias, entretanto, usando nosso plugin @cypress/puppeteer.
+
+Dito isso, exceto nas circunstâncias mais incomuns e raras, você ainda pode testar o comportamento da maioria dos aplicativos sem abrir vários navegadores ao mesmo tempo.
+
+Você pode perguntar sobre esta funcionalidade assim:
+
+Estou tentando testar um aplicativo de bate-papo. Posso executar mais de um navegador ao mesmo tempo com Cypress?
+
+Esteja você testando um aplicativo de bate-papo ou qualquer outra coisa, o que você realmente está perguntando é testar a colaboração. Porém, você não precisa recriar todo o ambiente 
+para testar a colaboração com 100% de cobertura.
+
+Fazer dessa forma pode ser mais rápido, preciso e escalonável.
+
+Embora esteja fora do escopo deste artigo, você pode testar um aplicativo de bate-papo usando os princípios a seguir. Cada um introduzirá gradativamente mais colaboração:
+
+1. Use apenas o navegador:
+    ↓
+← navegador →
+    ↑
+
+Evite o servidor, invoque seus retornos de chamada JavaScript manualmente, simulando assim o que acontece quando "notificações chegam" ou "usuários saem do chat" puramente no 
+navegador.
+
+Você pode fazer stub de tudo e simular cada cenário. Mensagens de chat, mensagens offline, conexões, reconexões, desconexões, chat em grupo, etc. Tudo o que acontece dentro do 
+navegador pode ser totalmente testado. As solicitações que saem do navegador também podem ser stubadas e você pode afirmar que os corpos da solicitação estão corretos.
+
+2. Stub a outra conexão:
+servidor → navegador
+            ↓
+servidor ← navegador
+  ↓
+(outras conexões cortadas)
+  ↓
+servidor → navegador
+
+Use seu servidor para receber mensagens do navegador e simule “o outro participante” enviando mensagens como esse participante. Certamente isso é específico do aplicativo, mas 
+geralmente você pode inserir registros no banco de dados ou fazer o que for necessário para que seu servidor aja como se uma mensagem de um cliente precisasse ser enviada de volta 
+ao navegador.
+
+Normalmente, esse padrão permite evitar fazer uma conexão WebSocket secundária e ainda assim cumprir o contrato bidirecional do navegador e do servidor. Isso significa que você 
+também pode testar casos extremos (desconexões, etc.) sem realmente lidar com conexões reais.
+
+3: Introduza outra conexão:
+servidor → navegador
+            ↓
+servidor ← navegador
+  ↓
+servidor → outra conexão
+            ↓
+servidor ← outra conexão
+  ↓
+servidor → navegador
+
+Para fazer isso - você precisaria de um processo em segundo plano fora do navegador para estabelecer a conexão WebSocket subjacente com a qual você pode se comunicar e controlar.
+
+Você pode fazer isso de várias maneiras e aqui está um exemplo de uso de um servidor HTTP para atuar como cliente e expor uma interface REST que nos permite controlá-lo.
+
+//Testes de cipreste
+
+// diz ao servidor http em 8081 para se conectar ao 8080
+cy.request('http://localhost:8081/connect?url=http://localhost:8080')
+
+// diz ao servidor http em 8081 para enviar uma mensagem
+cy.request('http://localhost:8081/message?m=hello')
+
+// diz ao servidor http em 8081 para desconectar
+cy.request('http://localhost:8081/disconnect')
+
+E o código do servidor HTTP seria mais ou menos assim...
+
+const cliente = require('socket.io:client')
+const expresso = require('expresso')
+
+const aplicativo = expresso()
+
+deixe soquete
+
+app.get('/connect', (req, res) => {
+  url const = req.query.url
+
+  soquete = cliente(url)
+
+  socket.on('conectar', () => {
+    res.sendStatus(200)
+  })
+})
+
+app.get('/mensagem', (req, res) => {
+  const mensagem = req.query.m
+
+  soquete.send(msg, () => {
+    res.sendStatus(200)
+  })
+})
+
+app.get('/desconectar', (req, res) => {
+  socket.on('desconectar', () => {
+    res.sendStatus(200)
+  })
+
+  soquete.disconnect()
+})
+
+app.listen(8081, () => {})
+
+Isso evita a necessidade de um segundo navegador aberto, mas ainda oferece um teste ponta a ponta que fornece 100% de confiança de que os dois clientes podem se comunicar entre si.
