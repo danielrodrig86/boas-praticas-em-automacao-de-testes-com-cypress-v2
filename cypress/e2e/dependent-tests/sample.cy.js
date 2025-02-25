@@ -4,8 +4,8 @@ describe('Dependent tests bad practice', () => {
 
     cy.get('.navbar-nav a:contains(Login)').click()
 
-    cy.get('#email').type(Cypress.env('user_email'))
-    cy.get('#password').type(Cypress.env('user_password'), { log: false })
+    cy.get('#email').type('daniel.rodrigues1998@live.com')
+    cy.get('#password').type('D@n12345.')
     cy.get('button[type="submit"]').click()
     
     cy.contains('h1', 'Your Notes').should('be.visible')
